@@ -17,965 +17,6 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: fuzzystrmatch; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS fuzzystrmatch WITH SCHEMA public;
-
-
---
--- Name: EXTENSION fuzzystrmatch; Type: COMMENT; Schema: -; Owner: 
---
-
-COMMENT ON EXTENSION fuzzystrmatch IS 'determine similarities and distance between strings';
-
-
---
--- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
-
-
---
--- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: 
---
-
-COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
-
-
---
--- Name: asf_convert_text_to_array(text); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.asf_convert_text_to_array(text1 text) RETURNS text[]
-    LANGUAGE plpgsql
-    AS $$
-
-DECLARE 
-
-  result text[];
-
-  i integer;
-
-  l integer;
-
-  t1 text;
-
-  t2 text;
-
-BEGIN
-
-i := 0;
-
-t1 := concat(text1,' ');
-
-l := length(t1);
-
-t2 := '';
-
-while i <= l loop
-
-  if substring(t1 from i for 1) = ' ' then
-
-    if t2 != '' then
-
-      result = array_append(result,t2);  
-
-    end if;
-
-    t2 := '';
-
-  else
-
-    t2 := concat(t2,substring(t1 from i for 1));
-
-  end if;
-
-  i := i + 1;
-
-end loop;
-
-RETURN result;
-
-END
-
-$$;
-
-
-ALTER FUNCTION public.asf_convert_text_to_array(text1 text) OWNER TO postgres;
-
---
--- Name: asf_convert_text_to_array2(text); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.asf_convert_text_to_array2(text1 text) RETURNS text[]
-    LANGUAGE plpgsql
-    AS $$
-
-DECLARE 
-
-  result text[];
-
-BEGIN
-
-result := regexp_split_to_array(regexp_replace(text1,'[^a-zA-Z 0-9,^ä,^ö,^ü,^ß]', '','g'),' ');
-
-RETURN result;
-
-END
-
-$$;
-
-
-ALTER FUNCTION public.asf_convert_text_to_array2(text1 text) OWNER TO postgres;
-
---
--- Name: asf_find_rank(text[], text[]); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.asf_find_rank(text1 text[], text2 text[]) RETURNS double precision
-    LANGUAGE plpgsql
-    AS $$
-
-DECLARE 
-
-  result integer;
-
-  i1 integer;
-
-  i2 integer;
-
-  l1 integer;
-
-  l2 integer;
-
-  f1 float;
-
-  f2 float;
-
-  t1 text;
-
-  t2 text;
-
-BEGIN
-
-result := 0;
-
-i1 := 1;
-
-f1 := 0;
-
-f2 := 0;
-
-l1 := cardinality(text1);
-
-l2 := cardinality(text2);
-
-t1 := '';
-
-t2 := '';
-
-while i1 <= l1 loop
-
-  t1 := text1[i1];
-
-  i2 := 1;
-
-  f1 := 0;
-
-  while i2 <= l2 loop
-
-    t2 := text2[i2];
-
-    f1 := f1 + similarity(t1,t2); 
-
-    i2 := i2 + 1;
-
-  end loop;
-
-  f1 := f1 / l2;
-
-  if f1 > f2 then
-
-    f2 := f1;
-
-  end if;
-
-  i1 := i1 + 1;
-
-end loop;
-
-RETURN f2;
-
-END
-
-$$;
-
-
-ALTER FUNCTION public.asf_find_rank(text1 text[], text2 text[]) OWNER TO postgres;
-
---
--- Name: asf_find_rank2(text[], text[]); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.asf_find_rank2(text1 text[], text2 text[]) RETURNS double precision
-    LANGUAGE plpgsql
-    AS $$
-
-DECLARE 
-
-  result integer;
-
-  i1 integer;
-
-  i2 integer;
-
-  l1 integer;
-
-  l2 integer;
-
-  f1 float;
-
-  f2 float;
-
-  t1 text;
-
-  t2 text;
-
-  b1 boolean;
-
-  b2 boolean;
-
-BEGIN
-
-result := 0;
-
-i1 := 1;
-
-f1 := 0;
-
-f2 := 0;
-
-l1 := cardinality(text1);
-
-l2 := cardinality(text2);
-
-t1 := '';
-
-t2 := '';
-
-b1 := false;
-
-b2 := false;
-
-while i1 <= l1 loop
-
-  t1 := trim(text1[i1]);
-
-  i2 := 1;
-
-  f1 := 0;
-
-  while i2 <= l2 loop
-
-    t2 := lower(trim(text2[i2]));
-
-    if t1 = t2 then
-
-      f1 := f1 + 1;
-
-    else
-
-      if t1 like concat(t2,'%') then
-
-        f1 := f1 + 0.8;
-
-      else
-
-	if t1 like concat('%',t2) then
-
-          f1 := f1 + 0.7;
-
-	else
-
-          if t1 like concat('%',t2,'%') then
-
-            f1 := f1 + 0.6;
-
-	  else
-
-	    f1 := f1 + similarity(t1,t2); 
-
-          end if;
-
-	end if;
-
-      end if;
-
-    end if;
-
-    i2 := i2 + 1;
-
-  end loop;
-
-  f1 := f1 / l2;
-
-  if f1 > f2 then
-
-    f2 := f1;
-
-  end if;
-
-  i1 := i1 + 1;
-
-end loop;
-
-RETURN f2;
-
-END
-
-$$;
-
-
-ALTER FUNCTION public.asf_find_rank2(text1 text[], text2 text[]) OWNER TO postgres;
-
-SET default_tablespace = '';
-
-SET default_table_access_method = heap;
-
---
--- Name: active_sessions; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.active_sessions (
-    user_id integer,
-    session_id integer,
-    start timestamp without time zone
-);
-
-
-ALTER TABLE public.active_sessions OWNER TO postgres;
-
---
--- Name: adressen_kpf; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.adressen_kpf (
-    nummer integer,
-    anrede1 character varying(100)[],
-    anrede2 character varying(100)[],
-    anrede3 character varying(100)[],
-    anrede4 character varying[],
-    anschrift text[]
-);
-
-
-ALTER TABLE public.adressen_kpf OWNER TO postgres;
-
---
--- Name: berechtigung; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.berechtigung (
-    userid integer,
-    modulnr integer,
-    lesen boolean,
-    schreiben boolean
-);
-
-
-ALTER TABLE public.berechtigung OWNER TO postgres;
-
---
--- Name: TABLE berechtigung; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON TABLE public.berechtigung IS 'Zuordnung der User zu den Modulen für die sie berechtigt sind';
-
-
---
--- Name: firmen; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.firmen (
-    firma character varying(3) NOT NULL,
-    name character varying(50)
-);
-
-
-ALTER TABLE public.firmen OWNER TO postgres;
-
---
--- Name: forms; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.forms (
-    id integer NOT NULL,
-    theme character varying(100),
-    name character varying(300),
-    path character varying(300),
-    iconpath character varying(300),
-    "timestamp" timestamp without time zone,
-    themeid integer
-);
-
-
-ALTER TABLE public.forms OWNER TO postgres;
-
---
--- Name: groups_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.groups_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    MAXVALUE 2147483647
-    CACHE 1;
-
-
-ALTER TABLE public.groups_id_seq OWNER TO postgres;
-
---
--- Name: groups; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.groups (
-    id integer DEFAULT nextval('public.groups_id_seq'::regclass) NOT NULL,
-    group_name text
-);
-
-
-ALTER TABLE public.groups OWNER TO postgres;
-
---
--- Name: handbuch; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.handbuch (
-    id integer NOT NULL,
-    dokument bytea,
-    typ character varying(20),
-    kapitel character varying(100),
-    bezeichnung character varying(100),
-    pfad character varying(1000),
-    ebene1 character varying(100),
-    ebene2 character varying(100),
-    ebene3 character varying(100)
-);
-
-
-ALTER TABLE public.handbuch OWNER TO postgres;
-
---
--- Name: information; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.information (
-    titel character varying(100),
-    inhalt text,
-    zeitstempel timestamp without time zone,
-    aenderung timestamp without time zone,
-    fulltextarray text[],
-    fulltext text,
-    id integer NOT NULL,
-    read_permission text,
-    modify_permission text
-);
-
-
-ALTER TABLE public.information OWNER TO postgres;
-
---
--- Name: COLUMN information.aenderung; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON COLUMN public.information.aenderung IS 'Änderungsdatum
-
-';
-
-
---
--- Name: information_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.information_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.information_id_seq OWNER TO postgres;
-
---
--- Name: information_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.information_id_seq OWNED BY public.information.id;
-
-
---
--- Name: kalender; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.kalender (
-    datum date NOT NULL,
-    f1 boolean,
-    f2 boolean,
-    f3 boolean,
-    u1 boolean,
-    b1 boolean,
-    f1text character varying(150),
-    f2text character varying(150),
-    f3text character varying(150),
-    b1text character varying,
-    u1text character varying(150),
-    f4 boolean,
-    f4text character varying(150)
-);
-
-
-ALTER TABLE public.kalender OWNER TO postgres;
-
---
--- Name: TABLE kalender; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON TABLE public.kalender IS 'f1 - bundesweiter Feiertag
-
-f2 - Feiertag in Sachsen
-
-f3 - Feiertag in Baden Würtemberg
-
-u1 - Schulferien in Sachsen
-
-b1 - betriebliche Veranstaltung';
-
-
---
--- Name: COLUMN kalender.f1; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON COLUMN public.kalender.f1 IS 'bundeseinheitlicher Feiertag';
-
-
---
--- Name: COLUMN kalender.f2; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON COLUMN public.kalender.f2 IS 'Feiertag in Sachsen';
-
-
---
--- Name: COLUMN kalender.f3; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON COLUMN public.kalender.f3 IS 'Feiertag in Baden Würtemberg';
-
-
---
--- Name: COLUMN kalender.u1; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON COLUMN public.kalender.u1 IS 'Ferien in Sachsen';
-
-
---
--- Name: COLUMN kalender.b1; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON COLUMN public.kalender.b1 IS 'Betriebsferien Radeburger Fensterbau';
-
-
---
--- Name: COLUMN kalender.f1text; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON COLUMN public.kalender.f1text IS 'Bezeichnung bundeseinheitlicher Feiertag';
-
-
---
--- Name: COLUMN kalender.f2text; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON COLUMN public.kalender.f2text IS 'Feiertag in Sachsen';
-
-
---
--- Name: COLUMN kalender.f3text; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON COLUMN public.kalender.f3text IS 'Feiertag in Baden Würtemberg';
-
-
---
--- Name: COLUMN kalender.b1text; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON COLUMN public.kalender.b1text IS 'Betriebsferien Bezeichnung';
-
-
---
--- Name: kalenderbasis; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.kalenderbasis (
-    datum date NOT NULL,
-    f1 boolean,
-    f1text character varying(30),
-    f2 boolean,
-    f2text character varying,
-    f3 boolean,
-    f3text character varying(30),
-    f4 boolean,
-    f4text character varying(30)
-);
-
-
-ALTER TABLE public.kalenderbasis OWNER TO postgres;
-
---
--- Name: COLUMN kalenderbasis.f1; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON COLUMN public.kalenderbasis.f1 IS 'Bundeseinheitliche Feiertage';
-
-
---
--- Name: COLUMN kalenderbasis.f2; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON COLUMN public.kalenderbasis.f2 IS 'Feiertage in Sachsen';
-
-
---
--- Name: COLUMN kalenderbasis.f3; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON COLUMN public.kalenderbasis.f3 IS 'Feiertage in Baden Würtemberg';
-
-
---
--- Name: COLUMN kalenderbasis.f4; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON COLUMN public.kalenderbasis.f4 IS 'Ferien in Sachsen';
-
-
---
--- Name: kontakte; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.kontakte (
-    nachname character varying(50),
-    vorname character varying(50),
-    telefon1 character varying(50),
-    telefon2 character varying(50),
-    telefon3 character varying(50),
-    email1 character varying(100),
-    email2 character varying(100),
-    email3 character varying(100),
-    id integer NOT NULL,
-    firma character varying(10),
-    fulltextarray text[],
-    fulltext text
-);
-
-
-ALTER TABLE public.kontakte OWNER TO postgres;
-
---
--- Name: media; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.media (
-    theme character varying(300),
-    name character varying(300),
-    path character varying(500),
-    iconpath character varying(500),
-    type character varying(10),
-    "timestamp" timestamp without time zone,
-    themeid integer,
-    id integer NOT NULL
-);
-
-
-ALTER TABLE public.media OWNER TO postgres;
-
---
--- Name: media_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.media_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.media_id_seq OWNER TO postgres;
-
---
--- Name: media_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.media_id_seq OWNED BY public.media.id;
-
-
---
--- Name: medien; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.medien (
-    id integer NOT NULL,
-    name character varying(100),
-    path character varying(300),
-    level1 character varying(50),
-    level2 character varying(50),
-    level3 character varying(50),
-    type character varying(10),
-    iconpath character varying(300),
-    "timestamp" timestamp without time zone,
-    themeid integer,
-    theme character varying(100)
-);
-
-
-ALTER TABLE public.medien OWNER TO postgres;
-
---
--- Name: mlevel1; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.mlevel1 (
-    id integer,
-    name character varying(50)
-);
-
-
-ALTER TABLE public.mlevel1 OWNER TO postgres;
-
---
--- Name: mlevel2; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.mlevel2 (
-    id integer,
-    level1 integer,
-    name character varying(50)
-);
-
-
-ALTER TABLE public.mlevel2 OWNER TO postgres;
-
---
--- Name: module; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.module (
-    modulnr integer,
-    modulname character varying(50),
-    beschreibung character varying(200)
-);
-
-
-ALTER TABLE public.module OWNER TO postgres;
-
---
--- Name: sessions_log; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.sessions_log (
-    user_id integer,
-    session_id integer,
-    start timestamp without time zone,
-    finish timestamp without time zone
-);
-
-
-ALTER TABLE public.sessions_log OWNER TO postgres;
-
---
--- Name: stamm; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.stamm (
-    id integer NOT NULL,
-    text1 text,
-    text2 text
-);
-
-
-ALTER TABLE public.stamm OWNER TO postgres;
-
---
--- Name: username; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.username (
-    id integer NOT NULL,
-    username character varying(50),
-    password character varying(50),
-    vorname character varying(50),
-    nachname character varying(50)
-);
-
-
-ALTER TABLE public.username OWNER TO postgres;
-
---
--- Name: users; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.users (
-    id integer NOT NULL,
-    loginname text NOT NULL,
-    lastname text NOT NULL,
-    firstname text NOT NULL,
-    type text NOT NULL,
-    membership text NOT NULL,
-    password text
-);
-
-
-ALTER TABLE public.users OWNER TO postgres;
-
---
--- Name: users_firstname_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.users_firstname_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.users_firstname_seq OWNER TO postgres;
-
---
--- Name: users_firstname_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.users_firstname_seq OWNED BY public.users.firstname;
-
-
---
--- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.users_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.users_id_seq OWNER TO postgres;
-
---
--- Name: users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
-
-
---
--- Name: users_lastname_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.users_lastname_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.users_lastname_seq OWNER TO postgres;
-
---
--- Name: users_lastname_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.users_lastname_seq OWNED BY public.users.lastname;
-
-
---
--- Name: users_loginname_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.users_loginname_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.users_loginname_seq OWNER TO postgres;
-
---
--- Name: users_loginname_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.users_loginname_seq OWNED BY public.users.loginname;
-
-
---
--- Name: users_type_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.users_type_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE public.users_type_seq OWNER TO postgres;
-
---
--- Name: users_type_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.users_type_seq OWNED BY public.users.type;
-
-
---
--- Name: information id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.information ALTER COLUMN id SET DEFAULT nextval('public.information_id_seq'::regclass);
-
-
---
--- Name: media id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.media ALTER COLUMN id SET DEFAULT nextval('public.media_id_seq'::regclass);
-
-
---
--- Name: users id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
-
-
---
 -- Data for Name: active_sessions; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -1037,6 +78,20 @@ COPY public.groups (id, group_name) FROM stdin;
 9	testing
 10	test2
 11	test3
+12	test4
+13	test5
+14	test6
+15	test9
+16	test10
+17	test11
+18	test12
+19	test13
+20	test14
+21	aasdasd
+22	adad
+23	aadad
+24	adsd
+25	aaaa
 \.
 
 
@@ -9729,57 +8784,57 @@ COPY public.kalenderbasis (datum, f1, f1text, f2, f2text, f3, f3text, f4, f4text
 -- Data for Name: kontakte; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.kontakte (nachname, vorname, telefon1, telefon2, telefon3, email1, email2, email3, id, firma, fulltextarray, fulltext) FROM stdin;
-Besprechungsraum		+49 35208 84 - 346						21	RF	{RF,Besprechungsraum,"",49,35208,84,"",346,"","","","",""}	RF Besprechungsraum  +49 35208 84 - 346     
-Andrich	Tobias	+49 35208 84 - 362			tobias.andrich@rf-fassaden.de			32	RF	{RF,Andrich,Tobias,49,35208,84,"",362,"","",tobiasandrichrffassadende,"",""}	RF Andrich Tobias +49 35208 84 - 362   tobias.andrich@rf-fassaden.de  
-Bewilogua	Ruben	+49 35208 84 - 354	\N	\N	ruben.bewilogua@rf-fassaden.de	\N	\N	27	RF	{bewilogua,ruben,493520884354,"","",rubenbewiloguarffassadende,"","",rf}	Bewilogua Ruben 493520884354   ruben.bewilogua@rf-fassaden.de   RF
-Zidek	Christian	+49 35208 84 - 342	\N	\N	christian.zidek@rf-fassaden.de	\N	\N	19	RF	{zidek,christian,493520884342,"","",christianzidekrffassadende,"","",rf}	Zidek Christian 493520884342   christian.zidek@rf-fassaden.de   RF
-Jahn	Thomas	+49 35208 84 - 327	\N	\N	thomas.jahn@rf-fassaden.de	\N	\N	15	RF	{jahn,thomas,493520884327,"","",thomasjahnrffassadende,"","",rf}	Jahn Thomas 493520884327   thomas.jahn@rf-fassaden.de   RF
-Wolf	Andreas	+49 35208 84 - 331	\N	\N	andreas.wolf@rf-fassaden.de	\N	\N	16	RF	{wolf,andreas,493520884331,"","",andreaswolfrffassadende,"","",rf}	Wolf Andreas 493520884331   andreas.wolf@rf-fassaden.de   RF
-Langer	Lars	+49 35208 84 - 384	\N	\N	lars.langer@rf-fassaden.de	\N	\N	43	RF	{langer,lars,493520884384,"","",larslangerrffassadende,"","",rf}	Langer Lars 493520884384   lars.langer@rf-fassaden.de   RF
-Kabella	Till	+49 35208 84 - 394	\N	\N	till.kabella@rf-fassaden.de	\N	\N	47	RF	{kabella,till,493520884394,"","",tillkabellarffassadende,"","",rf}	Kabella Till 493520884394   till.kabella@rf-fassaden.de   RF
-Zentrale	\N	+49 35208 84 - 310	\N	\N	\N	\N	\N	1	RF	{zentrale,"",493520884310,"","","","","",rf}	Zentrale  493520884310      RF
-Thomas	Maik	+49 35208 84 - 311	\N	\N	maik.thomas@rf-fassaden.de	\N	\N	2	RF	{thomas,maik,493520884311,"","",maikthomasrffassadende,"","",rf}	Thomas Maik 493520884311   maik.thomas@rf-fassaden.de   RF
-Richter	Anett	+49 35208 84 - 313			anett.richter@rf-fassaden.de	\N	\N	4	RF	{richter,anett,493520884313,"","",anettrichterrffassadende,"","",rf}	Richter Anett 493520884313   anett.richter@rf-fassaden.de   RF
-Drabe	Uwe	+49 35208 84 - 314			uwe.drabe@rf-fassaden.de			5	RF	{drabe,uwe,493520884314,"","",uwedraberffassadende,"","",rf}	Drabe Uwe 493520884314   uwe.drabe@rf-fassaden.de   RF
-Schubert	Sascha	+49 35208 84 - 315	\N	\N	sascha.schubert@rf-fassaden.de	\N	\N	6	RF	{schubert,sascha,493520884315,"","",saschaschubertrffassadende,"","",rf}	Schubert Sascha 493520884315   sascha.schubert@rf-fassaden.de   RF
-Besprechungsraum	\N	+49 35208 84 - 317	\N	\N	\N	\N	\N	8	RF	{besprechungsraum,"",493520884317,"","","","","",rf}	Besprechungsraum  493520884317      RF
-Hantschmann	Jens	+49 35208 84 - 318		\N	jens.hantschmann@rf-fassaden.de	\N	\N	9	RF	{hantschmann,jens,493520884318,"","",jenshantschmannrffassadende,"","",rf}	Hantschmann Jens 493520884318   jens.hantschmann@rf-fassaden.de   RF
-Pinkert	Maik	+49 35208 84 - 320	\N	\N	maik.pinkert@rf-fassaden.de	\N	\N	11	RF	{pinkert,maik,493520884320,"","",maikpinkertrffassadende,"","",rf}	Pinkert Maik 493520884320   maik.pinkert@rf-fassaden.de   RF
-Stuhler	Kerstin	+49 35208 84 - 339	\N	\N	kerstin.stuhler@rf-fassaden.de	\N	\N	18	RF	{stuhler,kerstin,493520884339,"","",kerstinstuhlerrffassadende,"","",rf}	Stuhler Kerstin 493520884339   kerstin.stuhler@rf-fassaden.de   RF
-Damme	Kerstin	+49 35208 84 - 324		\N		\N	\N	14	RF	{damme,kerstin,493520884324,"","","","","",rf}	Damme Kerstin 493520884324      RF
-Besprechungsraum EG	\N	+49 35208 84 - 347	\N	\N	\N	\N	\N	22	RF	{besprechungsraum,eg,"",493520884347,"","","","","",rf}	Besprechungsraum EG  493520884347      RF
-Lanzke	Andre	+49 35208 84 - 372	\N	\N	andre.lanzke@rf-fassaden.de	\N	\N	38	RF	{lanzke,andre,493520884372,"","",andrelanzkerffassadende,"","",rf}	Lanzke Andre 493520884372   andre.lanzke@rf-fassaden.de   RF
-Hähne	Janine	+49 35208 84 - 357		\N	janine.haehne@rf-fassaden.de	\N	\N	29	RF	{hähne,janine,493520884357,"","",janinehaehnerffassadende,"","",rf}	Hähne Janine 493520884357   janine.haehne@rf-fassaden.de   RF
-Stepanek	Rico	+49 35208 84 - 369	\N	\N	rico.stepanek@rf-fassaden.de	\N	\N	36	RF	{stepanek,rico,493520884369,"","",ricostepanekrffassadende,"","",rf}	Stepanek Rico 493520884369   rico.stepanek@rf-fassaden.de   RF
-Oehme	Stefan	+49 35208 84 - 379	\N	\N	stefan.oehme@rf-fassaden.de	\N	\N	41	RF	{oehme,stefan,493520884379,"","",stefanoehmerffassadende,"","",rf}	Oehme Stefan 493520884379   stefan.oehme@rf-fassaden.de   RF
-Minner	Sebastian	+49 35208 84 - 353	\N	\N	sebastian.minner@rf-fassaden.de	\N	\N	26	RF	{minner,sebastian,493520884353,"","",sebastianminnerrffassadende,"","",rf}	Minner Sebastian 493520884353   sebastian.minner@rf-fassaden.de   RF
-Stemmler	Bernd	+49 35208 84 - 355	\N	\N	bernd.stemmler@rf-fassaden.de	\N	\N	28	RF	{stemmler,bernd,493520884355,"","",berndstemmlerrffassadende,"","",rf}	Stemmler Bernd 493520884355   bernd.stemmler@rf-fassaden.de   RF
-Neumann	Regina	+49 35208 84 - 358	\N	\N	\N	\N	\N	30	RF	{neumann,regina,493520884358,"","","","","",rf}	Neumann Regina 493520884358      RF
-Pohl	Steffen	+49 35208 84 - 363	\N	\N	steffen.pohl@rf-fassaden.de	\N	\N	33	RF	{pohl,steffen,493520884363,"","",steffenpohlrffassadende,"","",rf}	Pohl Steffen 493520884363   steffen.pohl@rf-fassaden.de   RF
-Matthäus	Kai	+49 35208 84 - 374	\N	\N	kai.matthaeus@rf-fassaden.de	\N	\N	39	RF	{matthäus,kai,493520884374,"","",kaimatthaeusrffassadende,"","",rf}	Matthäus Kai 493520884374   kai.matthaeus@rf-fassaden.de   RF
-Plötner	Steffen	+49 35208 84 - 378	\N	\N	steffen.ploetner@rf-fassaden.de	\N	\N	40	RF	{plötner,steffen,493520884378,"","",steffenploetnerrffassadende,"","",rf}	Plötner Steffen 493520884378   steffen.ploetner@rf-fassaden.de   RF
-Geppert	Uwe	+49 35208 84 - 382			uwe.geppert@rf-fassaden.de			42	RF	{geppert,uwe,493520884382,"","",uwegeppertrffassadende,"","",rf}	Geppert Uwe 493520884382   uwe.geppert@rf-fassaden.de   RF
-Kürschner	Thomas	+49 35208 84 - 393	\N	\N	thomas.kuerschner@rf-fassaden.de	\N	\N	46	RF	{kürschner,thomas,493520884393,"","",thomaskuerschnerrffassadende,"","",rf}	Kürschner Thomas 493520884393   thomas.kuerschner@rf-fassaden.de   RF
-Schlenker	Silvio	+49 35208 84 - 319	\N	\N	silvio.schlenker@rf-fassaden.de	\N	\N	10	RF	{schlenker,silvio,493520884319,"","",silvioschlenkerrffassadende,"","",rf}	Schlenker Silvio 493520884319   silvio.schlenker@rf-fassaden.de   RF
-Richter	Steffen	+49 35208 84 - 333	\N	\N	steffen.richter@rf-fassaden.de	\N	\N	17	RF	{richter,steffen,493520884333,"","",steffenrichterrffassadende,"","",rf}	Richter Steffen 493520884333   steffen.richter@rf-fassaden.de   RF
-Verworner	Maria	+49 35208 84 - 343	\N	\N	maria.verworner@rf-fassaden.de	\N	\N	20	RF	{verworner,maria,493520884343,"","",mariaverwornerrffassadende,"","",rf}	Verworner Maria 493520884343   maria.verworner@rf-fassaden.de   RF
-Petzsch	Ingo	+49 35208 84 - 348	\N	\N	ingo.petzsch@rf-fassaden.de	\N	\N	23	RF	{petzsch,ingo,493520884348,"","",ingopetzschrffassadende,"","",rf}	Petzsch Ingo 493520884348   ingo.petzsch@rf-fassaden.de   RF
-Haupt	Madlen	+49 35208 84 - 351	\N	\N	madlen.haupt@rf-fassaden.de	\N	\N	24	RF	{haupt,madlen,493520884351,"","",madlenhauptrffassadende,"","",rf}	Haupt Madlen 493520884351   madlen.haupt@rf-fassaden.de   RF
-Helmert	Bettina	+49 35208 84 - 352	\N	\N	bettina.helmert@rf-fassaden.de	\N	\N	25	RF	{helmert,bettina,493520884352,"","",bettinahelmertrffassadende,"","",rf}	Helmert Bettina 493520884352   bettina.helmert@rf-fassaden.de   RF
-Tezner	Willy	+49 35208 84 - 365	\N	\N	willy.tezner@rf-fassaden.de	\N	\N	34	RF	{tezner,willy,493520884365,"","",willyteznerrffassadende,"","",rf}	Tezner Willy 493520884365   willy.tezner@rf-fassaden.de   RF
-Marschner	Mary Ann	+49 35208 84 - 387	\N	\N	maryann.marschner@rf-fassaden.de	\N	\N	44	RF	{marschner,mary,ann,493520884387,"","",maryannmarschnerrffassadende,"","",rf}	Marschner Mary Ann 493520884387   maryann.marschner@rf-fassaden.de   RF
-Maiwald	Hagen	+49 35208 84 - 312	\N	\N	hagen.maiwald@rf-fassaden.de	\N	\N	3	RF	{maiwald,hagen,493520884312,"","",hagenmaiwaldrffassadende,"","",rf}	Maiwald Hagen 493520884312   hagen.maiwald@rf-fassaden.de   RF
-Ottlinger	Conny	+49 35208 84 - 316	\N	\N	conny.ottlinger@rf-fassaden.de	\N	\N	7	RF	{ottlinger,conny,493520884316,"","",connyottlingerrffassadende,"","",rf}	Ottlinger Conny 493520884316   conny.ottlinger@rf-fassaden.de   RF
-Schubert	Falk	+49 35208 84 - 321	\N	\N	falk.schubert@rf-fassaden.de	\N	\N	12	RF	{schubert,falk,493520884321,"","",falkschubertrffassadende,"","",rf}	Schubert Falk 493520884321   falk.schubert@rf-fassaden.de   RF
-Förster	Steffen	+49 (0) 35208  84 - 350			steffen.foerster@rf-fassaden.de			51	RF	{RF,Förster,Steffen,49,0,35208,"",84,"",350,"","",steffenfoersterrffassadende,"",""}	RF Förster Steffen +49 (0) 35208  84 - 350   steffen.foerster@rf-fassaden.de  
-wrwer	wwerew	\N	\N	\N	\N	\N	\N	52	\N	\N	\N
-zzcxczcz	zzczczxczxc	\N	\N	\N	\N	\N	\N	53	\N	\N	\N
-asdasda	adad	\N	\N	\N	\N	\N	\N	54	\N	\N	\N
-qqewqewe	qwqwqwqwq	\N	\N	\N	\N	\N	\N	55	\N	\N	\N
-qeqweqw	qweqwqeqweqwe	\N	\N	\N	\N	\N	\N	56	\N	\N	\N
-adsadas	asddsadasd	\N	\N	\N	\N	\N	\N	57	\N	\N	\N
-sdfsdffsdfq	jony	\N	\N	\N	\N	\N	\N	58	\N	\N	\N
+COPY public.kontakte (nachname, vorname, telefon1, telefon2, telefon3, email1, email2, email3, id, firma, fulltextarray, fulltext, user_id) FROM stdin;
+Besprechungsraum		+49 35208 84 - 346						21	RF	{RF,Besprechungsraum,"",49,35208,84,"",346,"","","","",""}	RF Besprechungsraum  +49 35208 84 - 346     	\N
+Andrich	Tobias	+49 35208 84 - 362			tobias.andrich@rf-fassaden.de			32	RF	{RF,Andrich,Tobias,49,35208,84,"",362,"","",tobiasandrichrffassadende,"",""}	RF Andrich Tobias +49 35208 84 - 362   tobias.andrich@rf-fassaden.de  	\N
+Bewilogua	Ruben	+49 35208 84 - 354	\N	\N	ruben.bewilogua@rf-fassaden.de	\N	\N	27	RF	{bewilogua,ruben,493520884354,"","",rubenbewiloguarffassadende,"","",rf}	Bewilogua Ruben 493520884354   ruben.bewilogua@rf-fassaden.de   RF	\N
+Zidek	Christian	+49 35208 84 - 342	\N	\N	christian.zidek@rf-fassaden.de	\N	\N	19	RF	{zidek,christian,493520884342,"","",christianzidekrffassadende,"","",rf}	Zidek Christian 493520884342   christian.zidek@rf-fassaden.de   RF	\N
+Jahn	Thomas	+49 35208 84 - 327	\N	\N	thomas.jahn@rf-fassaden.de	\N	\N	15	RF	{jahn,thomas,493520884327,"","",thomasjahnrffassadende,"","",rf}	Jahn Thomas 493520884327   thomas.jahn@rf-fassaden.de   RF	\N
+Wolf	Andreas	+49 35208 84 - 331	\N	\N	andreas.wolf@rf-fassaden.de	\N	\N	16	RF	{wolf,andreas,493520884331,"","",andreaswolfrffassadende,"","",rf}	Wolf Andreas 493520884331   andreas.wolf@rf-fassaden.de   RF	\N
+Langer	Lars	+49 35208 84 - 384	\N	\N	lars.langer@rf-fassaden.de	\N	\N	43	RF	{langer,lars,493520884384,"","",larslangerrffassadende,"","",rf}	Langer Lars 493520884384   lars.langer@rf-fassaden.de   RF	\N
+Kabella	Till	+49 35208 84 - 394	\N	\N	till.kabella@rf-fassaden.de	\N	\N	47	RF	{kabella,till,493520884394,"","",tillkabellarffassadende,"","",rf}	Kabella Till 493520884394   till.kabella@rf-fassaden.de   RF	\N
+Zentrale	\N	+49 35208 84 - 310	\N	\N	\N	\N	\N	1	RF	{zentrale,"",493520884310,"","","","","",rf}	Zentrale  493520884310      RF	\N
+Thomas	Maik	+49 35208 84 - 311	\N	\N	maik.thomas@rf-fassaden.de	\N	\N	2	RF	{thomas,maik,493520884311,"","",maikthomasrffassadende,"","",rf}	Thomas Maik 493520884311   maik.thomas@rf-fassaden.de   RF	\N
+Richter	Anett	+49 35208 84 - 313			anett.richter@rf-fassaden.de	\N	\N	4	RF	{richter,anett,493520884313,"","",anettrichterrffassadende,"","",rf}	Richter Anett 493520884313   anett.richter@rf-fassaden.de   RF	\N
+Drabe	Uwe	+49 35208 84 - 314			uwe.drabe@rf-fassaden.de			5	RF	{drabe,uwe,493520884314,"","",uwedraberffassadende,"","",rf}	Drabe Uwe 493520884314   uwe.drabe@rf-fassaden.de   RF	\N
+Schubert	Sascha	+49 35208 84 - 315	\N	\N	sascha.schubert@rf-fassaden.de	\N	\N	6	RF	{schubert,sascha,493520884315,"","",saschaschubertrffassadende,"","",rf}	Schubert Sascha 493520884315   sascha.schubert@rf-fassaden.de   RF	\N
+Besprechungsraum	\N	+49 35208 84 - 317	\N	\N	\N	\N	\N	8	RF	{besprechungsraum,"",493520884317,"","","","","",rf}	Besprechungsraum  493520884317      RF	\N
+Hantschmann	Jens	+49 35208 84 - 318		\N	jens.hantschmann@rf-fassaden.de	\N	\N	9	RF	{hantschmann,jens,493520884318,"","",jenshantschmannrffassadende,"","",rf}	Hantschmann Jens 493520884318   jens.hantschmann@rf-fassaden.de   RF	\N
+Pinkert	Maik	+49 35208 84 - 320	\N	\N	maik.pinkert@rf-fassaden.de	\N	\N	11	RF	{pinkert,maik,493520884320,"","",maikpinkertrffassadende,"","",rf}	Pinkert Maik 493520884320   maik.pinkert@rf-fassaden.de   RF	\N
+Stuhler	Kerstin	+49 35208 84 - 339	\N	\N	kerstin.stuhler@rf-fassaden.de	\N	\N	18	RF	{stuhler,kerstin,493520884339,"","",kerstinstuhlerrffassadende,"","",rf}	Stuhler Kerstin 493520884339   kerstin.stuhler@rf-fassaden.de   RF	\N
+Damme	Kerstin	+49 35208 84 - 324		\N		\N	\N	14	RF	{damme,kerstin,493520884324,"","","","","",rf}	Damme Kerstin 493520884324      RF	\N
+Besprechungsraum EG	\N	+49 35208 84 - 347	\N	\N	\N	\N	\N	22	RF	{besprechungsraum,eg,"",493520884347,"","","","","",rf}	Besprechungsraum EG  493520884347      RF	\N
+Lanzke	Andre	+49 35208 84 - 372	\N	\N	andre.lanzke@rf-fassaden.de	\N	\N	38	RF	{lanzke,andre,493520884372,"","",andrelanzkerffassadende,"","",rf}	Lanzke Andre 493520884372   andre.lanzke@rf-fassaden.de   RF	\N
+Hähne	Janine	+49 35208 84 - 357		\N	janine.haehne@rf-fassaden.de	\N	\N	29	RF	{hähne,janine,493520884357,"","",janinehaehnerffassadende,"","",rf}	Hähne Janine 493520884357   janine.haehne@rf-fassaden.de   RF	\N
+Stepanek	Rico	+49 35208 84 - 369	\N	\N	rico.stepanek@rf-fassaden.de	\N	\N	36	RF	{stepanek,rico,493520884369,"","",ricostepanekrffassadende,"","",rf}	Stepanek Rico 493520884369   rico.stepanek@rf-fassaden.de   RF	\N
+Oehme	Stefan	+49 35208 84 - 379	\N	\N	stefan.oehme@rf-fassaden.de	\N	\N	41	RF	{oehme,stefan,493520884379,"","",stefanoehmerffassadende,"","",rf}	Oehme Stefan 493520884379   stefan.oehme@rf-fassaden.de   RF	\N
+Minner	Sebastian	+49 35208 84 - 353	\N	\N	sebastian.minner@rf-fassaden.de	\N	\N	26	RF	{minner,sebastian,493520884353,"","",sebastianminnerrffassadende,"","",rf}	Minner Sebastian 493520884353   sebastian.minner@rf-fassaden.de   RF	\N
+Stemmler	Bernd	+49 35208 84 - 355	\N	\N	bernd.stemmler@rf-fassaden.de	\N	\N	28	RF	{stemmler,bernd,493520884355,"","",berndstemmlerrffassadende,"","",rf}	Stemmler Bernd 493520884355   bernd.stemmler@rf-fassaden.de   RF	\N
+Neumann	Regina	+49 35208 84 - 358	\N	\N	\N	\N	\N	30	RF	{neumann,regina,493520884358,"","","","","",rf}	Neumann Regina 493520884358      RF	\N
+Pohl	Steffen	+49 35208 84 - 363	\N	\N	steffen.pohl@rf-fassaden.de	\N	\N	33	RF	{pohl,steffen,493520884363,"","",steffenpohlrffassadende,"","",rf}	Pohl Steffen 493520884363   steffen.pohl@rf-fassaden.de   RF	\N
+Matthäus	Kai	+49 35208 84 - 374	\N	\N	kai.matthaeus@rf-fassaden.de	\N	\N	39	RF	{matthäus,kai,493520884374,"","",kaimatthaeusrffassadende,"","",rf}	Matthäus Kai 493520884374   kai.matthaeus@rf-fassaden.de   RF	\N
+Plötner	Steffen	+49 35208 84 - 378	\N	\N	steffen.ploetner@rf-fassaden.de	\N	\N	40	RF	{plötner,steffen,493520884378,"","",steffenploetnerrffassadende,"","",rf}	Plötner Steffen 493520884378   steffen.ploetner@rf-fassaden.de   RF	\N
+Geppert	Uwe	+49 35208 84 - 382			uwe.geppert@rf-fassaden.de			42	RF	{geppert,uwe,493520884382,"","",uwegeppertrffassadende,"","",rf}	Geppert Uwe 493520884382   uwe.geppert@rf-fassaden.de   RF	\N
+Kürschner	Thomas	+49 35208 84 - 393	\N	\N	thomas.kuerschner@rf-fassaden.de	\N	\N	46	RF	{kürschner,thomas,493520884393,"","",thomaskuerschnerrffassadende,"","",rf}	Kürschner Thomas 493520884393   thomas.kuerschner@rf-fassaden.de   RF	\N
+Schlenker	Silvio	+49 35208 84 - 319	\N	\N	silvio.schlenker@rf-fassaden.de	\N	\N	10	RF	{schlenker,silvio,493520884319,"","",silvioschlenkerrffassadende,"","",rf}	Schlenker Silvio 493520884319   silvio.schlenker@rf-fassaden.de   RF	\N
+Richter	Steffen	+49 35208 84 - 333	\N	\N	steffen.richter@rf-fassaden.de	\N	\N	17	RF	{richter,steffen,493520884333,"","",steffenrichterrffassadende,"","",rf}	Richter Steffen 493520884333   steffen.richter@rf-fassaden.de   RF	\N
+Verworner	Maria	+49 35208 84 - 343	\N	\N	maria.verworner@rf-fassaden.de	\N	\N	20	RF	{verworner,maria,493520884343,"","",mariaverwornerrffassadende,"","",rf}	Verworner Maria 493520884343   maria.verworner@rf-fassaden.de   RF	\N
+Petzsch	Ingo	+49 35208 84 - 348	\N	\N	ingo.petzsch@rf-fassaden.de	\N	\N	23	RF	{petzsch,ingo,493520884348,"","",ingopetzschrffassadende,"","",rf}	Petzsch Ingo 493520884348   ingo.petzsch@rf-fassaden.de   RF	\N
+Haupt	Madlen	+49 35208 84 - 351	\N	\N	madlen.haupt@rf-fassaden.de	\N	\N	24	RF	{haupt,madlen,493520884351,"","",madlenhauptrffassadende,"","",rf}	Haupt Madlen 493520884351   madlen.haupt@rf-fassaden.de   RF	\N
+Helmert	Bettina	+49 35208 84 - 352	\N	\N	bettina.helmert@rf-fassaden.de	\N	\N	25	RF	{helmert,bettina,493520884352,"","",bettinahelmertrffassadende,"","",rf}	Helmert Bettina 493520884352   bettina.helmert@rf-fassaden.de   RF	\N
+Tezner	Willy	+49 35208 84 - 365	\N	\N	willy.tezner@rf-fassaden.de	\N	\N	34	RF	{tezner,willy,493520884365,"","",willyteznerrffassadende,"","",rf}	Tezner Willy 493520884365   willy.tezner@rf-fassaden.de   RF	\N
+Marschner	Mary Ann	+49 35208 84 - 387	\N	\N	maryann.marschner@rf-fassaden.de	\N	\N	44	RF	{marschner,mary,ann,493520884387,"","",maryannmarschnerrffassadende,"","",rf}	Marschner Mary Ann 493520884387   maryann.marschner@rf-fassaden.de   RF	\N
+Maiwald	Hagen	+49 35208 84 - 312	\N	\N	hagen.maiwald@rf-fassaden.de	\N	\N	3	RF	{maiwald,hagen,493520884312,"","",hagenmaiwaldrffassadende,"","",rf}	Maiwald Hagen 493520884312   hagen.maiwald@rf-fassaden.de   RF	\N
+Ottlinger	Conny	+49 35208 84 - 316	\N	\N	conny.ottlinger@rf-fassaden.de	\N	\N	7	RF	{ottlinger,conny,493520884316,"","",connyottlingerrffassadende,"","",rf}	Ottlinger Conny 493520884316   conny.ottlinger@rf-fassaden.de   RF	\N
+Schubert	Falk	+49 35208 84 - 321	\N	\N	falk.schubert@rf-fassaden.de	\N	\N	12	RF	{schubert,falk,493520884321,"","",falkschubertrffassadende,"","",rf}	Schubert Falk 493520884321   falk.schubert@rf-fassaden.de   RF	\N
+Förster	Steffen	+49 (0) 35208  84 - 350			steffen.foerster@rf-fassaden.de			51	RF	{RF,Förster,Steffen,49,0,35208,"",84,"",350,"","",steffenfoersterrffassadende,"",""}	RF Förster Steffen +49 (0) 35208  84 - 350   steffen.foerster@rf-fassaden.de  	\N
+wrwer	wwerew	\N	\N	\N	\N	\N	\N	52	\N	\N	\N	\N
+zzcxczcz	zzczczxczxc	\N	\N	\N	\N	\N	\N	53	\N	\N	\N	\N
+asdasda	adad	\N	\N	\N	\N	\N	\N	54	\N	\N	\N	\N
+qqewqewe	qwqwqwqwq	\N	\N	\N	\N	\N	\N	55	\N	\N	\N	\N
+qeqweqw	qweqwqeqweqwe	\N	\N	\N	\N	\N	\N	56	\N	\N	\N	\N
+adsadas	asddsadasd	\N	\N	\N	\N	\N	\N	57	\N	\N	\N	\N
+sdfsdffsdfq	jony	\N	\N	\N	\N	\N	\N	58	\N	\N	\N	\N
 \.
 
 
@@ -10000,6 +9055,33 @@ COPY public.stamm (id, text1, text2) FROM stdin;
 
 
 --
+-- Data for Name: user_groups; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.user_groups (id, user_id, group_id) FROM stdin;
+7	1	4
+8	1	9
+9	1	10
+10	1	11
+11	1	12
+12	1	13
+13	1	14
+14	2	4
+15	3	11
+16	3	12
+17	4	4
+18	4	9
+19	4	10
+20	5	4
+21	6	4
+22	7	10
+23	7	14
+24	7	17
+25	7	23
+\.
+
+
+--
 -- Data for Name: username; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -10013,88 +9095,14 @@ COPY public.username (id, username, password, vorname, nachname) FROM stdin;
 -- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.users (id, loginname, lastname, firstname, type, membership, password) FROM stdin;
-20	adadad	adadsa	adad	U	{3}	\N
-22	adadasd	adsada	adasd	U	{Array}	\N
-25	adsda	adadsd	asdasd	U	[2,3]	\N
-26	caa	adsad	adsa	U	[2]	\N
-30	ASADS	sdnfksdkfs	AFSDFN	U	Array	\N
-32	adadasddada	addas	dsdasd	U	[2]	\N
-35	shoaib7k	Anwar	Shoaib Bin	U	[2,3]	\N
-36	faisal4q	Anwar	Jobayer Bin 	A	[1,2,3]	\N
-38	fatema	Yasmin	Fatema	U	[2]	\N
-39	dfd	dfd	dfd	U	[3]	\N
-40	fdgdfgh	gfdgd	sdfdfgdf	U	[1]	\N
-41	rashedlogo	Anwar	Rashed Been	U	[2,3]	\N
-42	yakute	Begum	Yakute Jahan	U	[2,3]	yakute
-20	adadad	adadsa	adad	U	{3}	\N
-22	adadasd	adsada	adasd	U	{Array}	\N
-25	adsda	adadsd	asdasd	U	[2,3]	\N
-26	caa	adsad	adsa	U	[2]	\N
-30	ASADS	sdnfksdkfs	AFSDFN	U	Array	\N
-32	adadasddada	addas	dsdasd	U	[2]	\N
-35	shoaib7k	Anwar	Shoaib Bin	U	[2,3]	\N
-36	faisal4q	Anwar	Jobayer Bin 	A	[1,2,3]	\N
-38	fatema	Yasmin	Fatema	U	[2]	\N
-39	dfd	dfd	dfd	U	[3]	\N
-40	fdgdfgh	gfdgd	sdfdfgdf	U	[1]	\N
-41	rashedlogo	Anwar	Rashed Been	U	[2,3]	\N
-42	yakute	Begum	Yakute Jahan	U	[2,3]	yakute
-44	test	test	test	U	[1,2,3]	$2y$10$Dgzk8Y9OG5.SI9btcV.8lO3oPZkqt15SegASeXOhy0Rc3RA5pBHmy
-45	test	test	test	U	[1,2,3]	$2y$10$ZWeEWU0sfUAIPEf6pUgg2OteHozD3JGq0N74BEz.PweJF/ISb.05m
-46	test	test	test	U	[1,2,3]	$2y$10$o0V9IjanrEeROJ/PYTgfsuTHxCDsmNogLGfzzHFip2LsL7RKxupe6
-47	test	test	test	U	[1,2,3]	$2y$10$O912Ri16PNUyW1hULc/35OHw8nf2toVGYzSs5ewMAdLLqx7dN9wc2
-48	test	test	test	U	[1,2,3]	$2y$10$fcCsWymy/3AVeRyvaf7AkujkXA2RpTIPn6gb5cG4XteQuHIY2mPyW
-49	test	test	test	U	[1,2,3]	$2y$10$HDEdJM8l46FSNCQQiHLe1evaxXKRkruIeO5uagDKJG2JrvlwA8BDO
-50	asdasd	dadasda	adsa	U	[1,2,3]	$2y$10$Fc9JW9T9whE4Po/YeuUjeefLwGpZa39ekesvneFzRYgyZVuNaj7aq
-51	test	test	test	U	[1,2,3]	$2y$10$ka9vOoTE0ewUZH.5.0.TKOuGJ81hjcBnCkNwlOSYCFMkcaHuzXVHe
-52	asasd	adasd	aadsa	U	[2]	$2y$10$kcUJH.P1mLLkmedV1vLjB.6VxNyIRV/gWCAT/J9S5A4/4sbCcqDiS
-53	asasd	adasd	aadsa	U	[2]	$2y$10$VULhRxnmCrJEo93mpsbstecCrXeElazpcCPO0ImvxMRk8yg00sLle
-54	pranta	Dam	Pranta	U	[2,3]	$2y$10$lNHgK5r72UVR5Z6d0cQJYe0jmUccFmLYIih.VHB0LtVjSGHKkTqxa
-55	pranta	Dam	Pranta	U	[2,3]	$2y$10$GW7lFvh/YCnXH82GKrHZteeQxDbukh609CivUJ165R0jOCtsHd.dG
-56	pranta	Dam	Pranta	U	[2,3]	$2y$10$JtZT2UxweUiuwH5/sgz/7uFP/hPzU2K8JtZb5aGI.ZG7GYKM2K49q
-57	fdkgjnfdgj	nfdgndjgndf	dfhbjgndfjgdgn	U	[]	$2y$10$YeJRfK49QnH20RvGW/MkdeHxaGgv1JyQXPFrYVsCnigM9QgIRYQkO
-58	skfmsdk	smfksdfm	djfndsfkjnsdkjfn	U	[2,3]	$2y$10$nL4cvFPuqG2XPEKJybJ1VOGeJrfzt.K7rZhExf1ObbpGeme2Ex0G.
-59	sffffffss	fsfsf	edfdsf	U	[1,2]	$2y$10$5iy2nIeAGrn07q0TJ5m9s.btQLv71PgXsuBN2VzofeSUb2AKVJxpm
-60	mezbah	Uddin	Mezbah	U	[1,2]	$2y$10$suqGll8WH0tiCozRsCwMGe8dWeS.3SC8foEnFP/rQKCTsqEq411E6
-61	test111	test111	test111	A	[1,2,3]	$2y$10$RLiVbwtLt81uODo8IOkLQuMqba0lFH0u2so4QkzgsIoPz5wJf3iBC
-62	test1111	adad	casda	U	[2]	$2y$10$w/2xY31O2RyjLCrknHDOiulfBwF15De.UaPgVVDiOMWMQoe57mV8O
-63	test11111	tes	test11111	U	[3]	$2y$10$hViJIwc0hnnKI33m.jYv0OzJ5/ON/nyyOELilN/0z3NxZs1BGiX6O
-64	test11111	tes	test11111	U	[3]	$2y$10$BXCU16x7l8ovMAem7HtNduVvcmadtMVIGVuaodrsOIh6zxd2YljD.
-68	manirul	Islam	manirul	User		777777
-69	zczxc	zczxc	ssczx	User		zczxc
-70	fsdfsdf	sfsdfsd	sdfsdf	User		sfdsf
-71	fsdfsdf	sfsdfsd	sdfsdf	User		sfdsf
-72	fsdfsd	fsfsdf	sdfsd	User		fsdfdsf
-73	fsdfsdf	sfsdfsd	sdfsdf	User		sfdsf
-74	sfddsf	sfsdf	sfsf	User		sfsdf
-75	dgdfg	dfgdfg	dgdfg	User		dgdfg
-76	dgdfg	dfgdfg	dgdfg	User		dgdfg
-77	czxcz	xczczc	zcz	User		czxc
-78	sfdsf	sfsd	vsf	Group		sfdsf
-79	dfgfd	dfgdfg	dgdfg	User		gdfgd
-80	sdfdsf	sfdsf	sfsdfds	User		sfds
-81	sddsf	dsadasd	adasdfadsaddsas	User		adasdas
-82	adsa	aadsad	zcasasddadas	User		adsad
-83	wrewr	wrwer	wwerew	User		wrwer
-84	xczxczxc	zzcxczcz	zzczczxczxc	User		zxcxzcz
-85	dsadas	asdasda	adad	User		dasdsad
-86	qqewe	qqewqewe	qwqwqwqwq	User		dqeqweqw
-87	eqeqwe	qeqweqw	qweqwqeqweqwe	User		qeqw
-88	dasdasd	dadsadadas	adadadadadadadas	User		asdasdsa
-89	sadasd	asdasd	sadadsad	User		asdasdas
-90	sfdsfsdfsdf	sfdsfdsffsfsd	adfadsdfaadfad	User		sfdsfdsfsd
-91	dasdas	adsadas	asddsadasd	User		dasdsad
-92	sdsdfjdsfuh	sdfsdffsdfq	jony	User		fshisff
-21	adadad	babu	babu	U	{3}	\N
-93	jjjjj	adsjasddh	jony21	User		adiadid
-21	adadad	babu	babu	U	{3}	\N
-43	azim1	Azim1	Anwarul 	U	[2]	$2y$10$0p3BWi6JqktCe2ponXjuGurYgBcWtT8kdqYlscy7VmTTvln3VwF76
-43	azim1	Azim1	Anwarul 	U	[2]	$2y$10$0p3BWi6JqktCe2ponXjuGurYgBcWtT8kdqYlscy7VmTTvln3VwF76
-34	adadad	shoaib	adad1111	U	[2]	\N
-34	adadad	shoaib	adad1111	U	[2]	\N
-19	adadad	adadsa	adad1111	U	{3}	\N
-19	adadad	adadsa	adad1111	U	{3}	\N
+COPY public.users (id, first_name, last_name, login_name, password, user_type) FROM stdin;
+1	adaddad	adasdsad	sadsada	adasdad	U
+2	adasdasd	asdada	adsada	adasda	U
+3	addadasd	adada	adasd	adadsad	U
+4	adasdasd	adasdsa	dsadas	dasdasd	U
+5	jony2	jony2	adadada	aasdasd	U
+6	nkkasdsakndakaadsaka	asknaskdsakdsakdk	asknaskdnkasndk	askasdkasdk	U
+7	adasd	adasdasd	adasd	adasd	U
 \.
 
 
@@ -10102,7 +9110,7 @@ COPY public.users (id, loginname, lastname, firstname, type, membership, passwor
 -- Name: groups_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.groups_id_seq', 11, true);
+SELECT pg_catalog.setval('public.groups_id_seq', 25, true);
 
 
 --
@@ -10120,153 +9128,31 @@ SELECT pg_catalog.setval('public.media_id_seq', 83, true);
 
 
 --
--- Name: users_firstname_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: user_groups_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.users_firstname_seq', 1, false);
+SELECT pg_catalog.setval('public.user_groups_id_seq', 1, false);
+
+
+--
+-- Name: user_groups_id_seq1; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.user_groups_id_seq1', 25, true);
 
 
 --
 -- Name: users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.users_id_seq', 93, true);
+SELECT pg_catalog.setval('public.users_id_seq', 1, false);
 
 
 --
--- Name: users_lastname_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: users_id_seq1; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.users_lastname_seq', 1, false);
-
-
---
--- Name: users_loginname_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.users_loginname_seq', 1, false);
-
-
---
--- Name: users_type_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.users_type_seq', 1, false);
-
-
---
--- Name: kontakte ID; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.kontakte
-    ADD CONSTRAINT "ID" PRIMARY KEY (id);
-
-
---
--- Name: username Primärschlüssel; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.username
-    ADD CONSTRAINT "Primärschlüssel" PRIMARY KEY (id);
-
-
---
--- Name: handbuch dokumente_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.handbuch
-    ADD CONSTRAINT dokumente_pkey PRIMARY KEY (id);
-
-
---
--- Name: firmen firmen_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.firmen
-    ADD CONSTRAINT firmen_pkey PRIMARY KEY (firma);
-
-
---
--- Name: forms forms_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.forms
-    ADD CONSTRAINT forms_pkey PRIMARY KEY (id);
-
-
---
--- Name: groups groups_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.groups
-    ADD CONSTRAINT groups_pkey PRIMARY KEY (id);
-
-
---
--- Name: medien id; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.medien
-    ADD CONSTRAINT id PRIMARY KEY (id);
-
-
---
--- Name: kalenderbasis kalenderbasis_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.kalenderbasis
-    ADD CONSTRAINT kalenderbasis_pkey PRIMARY KEY (datum);
-
-
---
--- Name: kalender primary_Key; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.kalender
-    ADD CONSTRAINT "primary_Key" PRIMARY KEY (datum);
-
-
---
--- Name: stamm stamm_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.stamm
-    ADD CONSTRAINT stamm_pkey PRIMARY KEY (id);
-
-
---
--- Name: TABLE adressen_kpf; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT ALL ON TABLE public.adressen_kpf TO PUBLIC;
-
-
---
--- Name: TABLE kalender; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT ALL ON TABLE public.kalender TO PUBLIC;
-
-
---
--- Name: TABLE kontakte; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT ALL ON TABLE public.kontakte TO PUBLIC;
-
-
---
--- Name: TABLE medien; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT ALL ON TABLE public.medien TO PUBLIC;
-
-
---
--- Name: TABLE username; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT ALL ON TABLE public.username TO PUBLIC;
+SELECT pg_catalog.setval('public.users_id_seq1', 7, true);
 
 
 --

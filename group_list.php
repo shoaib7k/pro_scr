@@ -1,3 +1,4 @@
+<?php  include('paginator.class.php'); ?>
 <?php
 include 'db_connect.php';
 $lang_first_name = "First Name";
@@ -31,7 +32,7 @@ if ($_GET['act'] == 'add_group') {
         -->
   <script src="./js/jquery-3.5.1.min.js"></script>
   <link rel="stylesheet" type="text/css" href="./css/bootstrap.min.css">
-
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css" integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/" crossorigin="anonymous">
   <script type="text/javascript" src="./js/bootstrap.min.js"></script>
 </head>
 
@@ -78,6 +79,92 @@ if ($_GET['act'] == 'add_group') {
       </div>
     </div>
 
+   <div class="container">
+    <h1><a href="">Group List</a></h1>
+      <hr>
+    <?php
+   /* if(isset($_REQUEST['tb1'])) {
+      $condition    = "";
+      if(isset($_GET['tb1']) and $_GET['tb1']!="")
+      {
+        $condition    .=  " AND continentName='".$_GET['tb1']."'";
+      }
+     */ 
+      //Main query
+      //if(isset($_REQUEST['tb1'])){
+      $pages = new Paginator;
+      $pages->default_ipp = 15;
+      $sql_forms = pg_query("SELECT * FROM groups");
+      $pages->items_total = pg_num_rows($sql_forms);
+      $pages->mid_range = 9;
+      $pages->paginate(); 
+      //echo "SELECT * FROM groups ORDER BY id ASC '".$pages->limit."'";
+      //echo $pages->limit;
+      $result = pg_query("SELECT * FROM groups ORDER BY id ASC ".$pages->limit."");
+   // }
+    ?>
+    <div class="clearfix"></div>
+    
+    <div class="row marginTop">
+      <div class="col-sm-12 paddingLeft pagerfwt">
+        <?php if($pages->items_total > 0) { ?>
+          <?php echo $pages->display_pages();?>
+          <?php echo $pages->display_items_per_page();?>
+          <?php echo $pages->display_jump_menu(); ?>
+        <?php }?>
+      </div>
+      <div class="clearfix"></div>
+    </div>
+
+    <div class="clearfix"></div>
+    
+    <table class="table table-bordered table-striped">
+      <thead>
+        <tr>
+          <th>Sr#</th>
+          <th>Group Name</th>
+          <th>Group ID</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php 
+        if($pages->items_total>0){
+          $n  =   1;
+          while($val  =   pg_fetch_array($result)){ 
+        ?>
+        <tr>
+          <td><?php echo $n++; ?></td>
+          <td><?php echo mb_strtoupper($val['group_name']); ?></td>
+          <td><?php echo $val['id']; ?></td>
+         
+        </tr>
+        <?php 
+          }
+        }else{?>
+        <tr>
+          <td colspan="6" align="center"><strong>No Record(s) Found!</strong></td>
+        </tr>
+        <?php } ?>
+      </tbody>
+    </table>
+    
+    <div class="clearfix"></div>
+    
+    <div class="row marginTop">
+      <div class="col-sm-12 paddingLeft pagerfwt">
+        <?php if($pages->items_total > 0) { ?>
+          <?php echo $pages->display_pages();?>
+          <?php echo $pages->display_items_per_page();?>
+          <?php echo $pages->display_jump_menu(); ?>
+        <?php }?>
+      </div>
+      <div class="clearfix"></div>
+    </div>
+
+    <div class="clearfix"></div>
+        
+    </div> <!--/.container-->
+  
   </div>
 </body>
 
