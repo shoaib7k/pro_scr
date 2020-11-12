@@ -37,5 +37,6 @@ $lang_location_title="Location";
           </div>
         </footer>
       </div>
+      <?php include 'footer.php';?>
 </body>
 </html>

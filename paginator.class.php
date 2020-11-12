@@ -50,7 +50,7 @@ class Paginator{
 
 		$this->mid_range = 7;
 
-		$this->ipp_array = array(10,25,50,100,150,200,'All');
+		$this->ipp_array = array(15,25,50,100,150,200,'All');
 
 		$this->items_per_page = (!empty($_GET['ipp'])) ? $_GET['ipp']:$this->default_ipp;
 
