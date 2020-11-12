@@ -52,5 +52,6 @@
       </div>
 
     </div>
+  </nav>
 </div>
       <!--/.nav-collapse -->

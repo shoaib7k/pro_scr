@@ -31,7 +31,7 @@ if ($_GET['act'] == 'add_group') {
   <?php include "head.php"; ?>
 </head>
 
-<body>
+<body style="position: relative;">
   <?php include "header.php"; ?>
 
 
@@ -157,10 +157,18 @@ if ($_GET['act'] == 'add_group') {
     </div>
 
     <div class="clearfix"></div>
-        
+    <footer style="
+   bottom:0;
+   width:100%;
+   height:40px;
+   background:#1D7852;
+   color: #F8F8F8">
+    <p>@Radeburger Fensterbau GmbH</p>
+</footer>
     </div> <!--/.container-->
-  
+   
   </div>
+ <?php include 'footer.php';?>
 </body>
 
 </html>
