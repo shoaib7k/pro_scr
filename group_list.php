@@ -32,7 +32,7 @@ if ($_GET['act'] == 'add_group') {
         -->
   <script src="./js/jquery-3.5.1.min.js"></script>
   <link rel="stylesheet" type="text/css" href="./css/bootstrap.min.css">
-<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css" integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/" crossorigin="anonymous">
+<!-- <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css" integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/" crossorigin="anonymous"> -->
   <script type="text/javascript" src="./js/bootstrap.min.js"></script>
 </head>
 
@@ -134,7 +134,7 @@ if ($_GET['act'] == 'add_group') {
         ?>
         <tr>
           <td><?php echo $n++; ?></td>
-          <td><?php echo mb_strtoupper($val['group_name']); ?></td>
+          <td><?php echo $val['group_name']; ?></td>
           <td><?php echo $val['id']; ?></td>
          
         </tr>

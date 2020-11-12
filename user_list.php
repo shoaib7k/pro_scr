@@ -230,8 +230,8 @@ li.multiselect-group a {
         ?>
         <tr>
           <td><?php echo $n++; ?></td>
-          <td><?php echo mb_strtoupper($val['first_name']); ?></td>
-          <td><?php echo mb_strtoupper($val['last_name']); ?></td>
+          <td><?php echo ($val['first_name']); ?></td>
+          <td><?php echo ($val['last_name']); ?></td>
           <td><?php echo $val['login_name']; ?></td>
           <td><?php echo $val['user_type']; ?></td>
          
