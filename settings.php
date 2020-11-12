@@ -9,12 +9,7 @@ $lang_location_title="Location";
 ?>
 <html>
     <head>
-        <!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-        -->
-        <script src="./js/jquery-3.5.1.min.js"></script>
-        <link rel="stylesheet" type="text/css" href="./css/bootstrap.min.css">
-
-        <script type="text/javascript" src="./js/bootstrap.min.js"></script>
+      <?php include "head.php";?>
     </head>
 <body>
 <?php include "header.php"; ?>
@@ -22,7 +17,7 @@ $lang_location_title="Location";
      
   <center>
       <div class="container">
-       <div class="card" style="width: 18rem;">
+       <div class="card" style="width: 80rem; height:auto; padding:inherit;">
   <ul class="list-group list-group-flush">
     <a href="user_list.php"><li class="list-group-item"><?php echo $lang_users_title; ?></li></a>
     <a href="group_list.php"><li class="list-group-item"><?php echo $lang_groups_title; ?></li></a>
@@ -37,7 +32,7 @@ $lang_location_title="Location";
  <footer class="pt-4 my-md-5 pt-md-5 border-top">
           <div class="row">
              <div class="card-deck mb-3 text-center">
-           footer content goes here
+           
          </div>
           </div>
         </footer>
