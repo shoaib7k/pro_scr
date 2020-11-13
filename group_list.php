@@ -24,6 +24,29 @@ if ($_GET['act'] == 'add_group') {
     }
   }
 }
+if ($_GET['act'] == 'update_group') {
+  $group_name = $_POST['group_name'];
+  $group_id = $_POST['id'];
+  if (!empty($group_name)) {
+    if ($db_connection) {
+      $sql = "update groups SET group_name='".$group_name."' WHERE id='".$group_id."'";
+      $db_result = pg_query($db_connection, $sql);
+      if ($db_result) {
+        pg_free_result($db_result);
+        header("location: group_list.php");
+      }
+    }
+  }
+}
+if($_GET['act']=='delete'){
+  $id=$_GET['id'];
+  $sql2="DELETE from groups where id=".$id."";
+  $db_result2=pg_query($db_connection,$sql2);
+  if($db_result2){
+    pg_free_result($db_result2);
+    header("location: group_list.php");
+  }
+}
 ?>
 <html>
 
@@ -119,6 +142,8 @@ if ($_GET['act'] == 'add_group') {
           <th>Sr#</th>
           <th>Group Name</th>
           <th>Group ID</th>
+          <th>Action</th>
+
         </tr>
       </thead>
       <tbody>
@@ -131,7 +156,45 @@ if ($_GET['act'] == 'add_group') {
           <td><?php echo $n++; ?></td>
           <td><?php echo $val['group_name']; ?></td>
           <td><?php echo $val['id']; ?></td>
-         
+          <td> 
+   <a onClick="return confirm('Are you sure you want to delete group <?php echo $val['group_name'];?>')" href="group_list.php?act=delete&id=<?php echo $val['id']; ?>" class="btn btn-primary a-btn-slide-text" type="button">
+       <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>
+        <span><strong>Delete</strong></span>            
+    </a>
+    <a href="#editGroup<?php echo $val['id'];?>" class="btn btn-primary a-btn-slide-text" data-id="<?php echo $val['id'];?>" data-toggle="modal">
+        <span class="glyphicon glyphicon-edit" aria-hidden="true"></span>
+        <span><strong>Edit</strong></span>            
+    </a>
+            <div class="modal fade" id="editGroup<?php echo $val['id']; ?>" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="exampleModalLabel">Edit Group</h5>
+                  <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </div>
+                <div class="modal-body">
+                  <form method="POST" action="group_list.php?act=update_group">
+                   <input type="hidden" name="id"  class="form-control" value="<?php echo $val['id']; ?>" >
+                    <div class="form-group row">
+                      <label for="groupName" class="col-sm-4 col-form-label"><?php echo $lang_group_name; ?></label>
+                      <div class="col-sm-8">
+                        <input type="text" name="group_name" id="group_name" class="form-control" value="<?php echo $val['group_name']; ?>">
+                      </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                  <input type="submit" class="btn btn-primary" value="Update">
+                </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+
+  </td>
         </tr>
         <?php 
           }

@@ -40,7 +40,7 @@
           <li><a href="#">Training</a></li>
           <li><a href="#">Templates<a></li>
    
-      <img src='images/button-login.svg' name='button-login' onmouseover="this.src='images/button-login-red.svg'" onmouseout="this.src='images/button-login.svg'" onclick='' class="img_button_40" />
+      <img src='images/button-login.svg' name='button-login' onmouseover="this.src='images/button-login-red.svg'" onmouseout="this.src='images/button-login.svg'" onclick='' class="img_button_40" data-toggle="modal" data-target="#exampleModal"/>
 
       <a href="settings.php" class="btn btn-outline-primary"><img src="images/button-gear.svg" alt="button config" onmouseover="javascript:this.src='images/button-gear-red.svg'" onmouseout="javascript:this.src='images/button-gear.svg'" class="svg_image_button_2"></a>
 
@@ -55,3 +55,36 @@
   </nav>
 </div>
       <!--/.nav-collapse -->
+           <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="exampleModalLabel">Login Now</h5>
+                  <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </div>
+                <div class="modal-body">
+                  <form method="POST" action="login.php">
+                    <div class="form-group row">
+                      <label for="loginName" class="col-sm-4 col-form-label">Login Name</label>
+                      <div class="col-sm-8">
+                        <input type="text" name="login_name" id="login_name" class="form-control">
+                      </div>
+                    </div>
+                    <div class="form-group row">
+                      <label for="password" class="col-sm-4 col-form-label">password</label>
+                      <div class="col-sm-8">
+                        <input type="text" name="password" id="password" class="form-control">
+                      </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                  <input type="submit" class="btn btn-primary" value="Login">
+                </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
