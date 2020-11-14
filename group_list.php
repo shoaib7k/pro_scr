@@ -1,4 +1,7 @@
-<?php  include('paginator.class.php'); ?>
+<?php 
+session_start();
+include('paginator.class.php'); 
+ ?>
 <?php
 include 'db_connect.php';
 $lang_first_name = "First Name";

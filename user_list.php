@@ -1,4 +1,7 @@
-<?php include('paginator.class.php'); ?>
+<?php
+session_start();
+include('paginator.class.php'); 
+ ?>
 <?php
 include 'db_connect.php';
 $lang_users_title = "Users";
@@ -39,12 +42,13 @@ if ($_GET['act'] == 'useradd') {
           // header("location: group_list.php");
         }
       } else {
-        $sql2 = "insert into kontakte (vorname,nachname,user_id) values ('" . $first_name . "','" . $last_name . "','" . $inserted_id . "')";
+       /* $sql2 = "insert into kontakte (vorname,nachname,user_id) values ('" . $first_name . "','" . $last_name . "','" . $inserted_id . "')";
         $db_result2 = pg_query($db_connection, $sql2);
         if ($db_result2) {
           pg_free_result($db_result2);
           // header("location: group_list.php");
         }
+        */
       }
       header("location: user_list.php");
     }
@@ -125,6 +129,12 @@ if($_GET['act']=='delete'){
   $db_resultd2=pg_query($db_connection,$sqld2);
  if($db_resultd2){
     pg_free_result($db_resultd2);
+    //header("location: user_list.php");
+  }
+  $sqld3="DELETE from kontakte where user_id=".$id."";
+  $db_resultd3=pg_query($db_connection,$sqld3);
+ if($db_resultd3){
+    pg_free_result($db_resultd3);
     header("location: user_list.php");
   }
   }

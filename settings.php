@@ -1,4 +1,5 @@
 <?php
+session_start();
 $lang_users_title="Users";
 $lang_groups_title="Groups";
 $lang_group_structure_title="Group Structure";
