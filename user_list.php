@@ -63,7 +63,7 @@ if ($_GET['act'] == 'update_user') {
     $sqlu1 = "UPDATE users SET login_name='".$login_name."',first_name='".$first_name."',last_name='".$last_name."',user_type='".$user_type."' where id='".$user_id."'";  
     }
     else{
-    $sqlu1 = "UPDATE users SET login_name='".$login_name."',first_name='".$first_name."','".$last_name."','".$user_type."',password='".$password."' where id='".$user_id."'";
+    $sqlu1 = "UPDATE users SET login_name='".$login_name."',first_name='".$first_name."',last_name='".$last_name."',user_type='".$user_type."',password='".$password."' where id='".$user_id."'";
   }
     $db_resultu1 = pg_query($db_connection, $sqlu1);
     if ($db_resultu1) {

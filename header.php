@@ -59,12 +59,14 @@
             <div class="modal-dialog">
               <div class="modal-content">
                 <div class="modal-header">
-                  <h5 class="modal-title" id="exampleModalLabel">Login Now</h5>
+                  <h5 class="modal-title" id="exampleModalLabel">Login</h5>
                   <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                   </button>
                 </div>
+
                 <div class="modal-body">
+                  <?php if($_SESSION['logged_in']!=1) { ?>
                   <form method="POST" action="login.php">
                     <div class="form-group row">
                       <label for="loginName" class="col-sm-4 col-form-label">Login Name</label>
@@ -75,7 +77,7 @@
                     <div class="form-group row">
                       <label for="password" class="col-sm-4 col-form-label">password</label>
                       <div class="col-sm-8">
-                        <input type="text" name="password" id="password" class="form-control">
+                        <input type="password" name="password" id="password" class="form-control">
                       </div>
                     </div>
                 </div>
@@ -83,8 +85,31 @@
                   <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
                   <input type="submit" class="btn btn-primary" value="Login">
                 </div>
+              <?php } else {
+                echo "Logged in as ".$_SESSION['login_name']."";
+                echo '<div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                  <a href="logout.php">
+                  <input type="submit" class="btn btn-danger" value="Log Out">
+                  </a>
+                </div>';
+              }
+                ?>
                 </form>
               </div>
             </div>
           </div>
         </div>
+        <?php
+        if($_SESSION['logged_in']==1){
+          if ($_SESSION['user_type']=='A') {
+            $user_type="Admin";
+          }
+          else{
+            $user_type="User";
+          }
+echo '<div class="alert alert-success" role="alert">
+  Your logged in as '.$user_type.' with login name '.$_SESSION['login_name'].'
+</div>';
+        }
+        ?>
