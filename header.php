@@ -36,7 +36,7 @@
         <ul class="nav navbar-nav navbar-right">
           <li class="active"><a href="#">Calender</a></li>
           <li><a href="#">Information</a></li>
-          <li><a href="#">Contact</a></li>
+          <li><a href="contact_list.php">Contact</a></li>
           <li><a href="#">Training</a></li>
           <li><a href="#">Templates<a></li>
    
